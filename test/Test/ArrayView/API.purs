@@ -55,7 +55,6 @@ import Data.ArrayView
   , dropWhile
   , span
   , group
-  , group'
   , groupBy
   , nub
   , nubEq

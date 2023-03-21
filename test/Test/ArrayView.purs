@@ -1,10 +1,9 @@
 module Test.ArrayView
-       ( checkSlices
-       , checkWithIndex
-       , checkWithPredicate
-       , checkCombinations
-       )
-where
+  ( checkSlices
+  , checkWithIndex
+  , checkWithPredicate
+  , checkCombinations
+  ) where
 
 import Test.ArrayView.Common
 
@@ -19,19 +18,18 @@ import Partial.Unsafe (unsafePartial)
 import Prelude (class Eq, class Ord, class Show, Unit, compare, const, discard, eq, flip, map, negate, not, pure, ($), (&&), (+), (<), (<>), (==), (>), (>=), (>>>))
 import Test.Assert (assertThrows)
 
-
 checkSlices :: Int -> Int -> ArrayView Int -> Array Int -> Effect Unit
 checkSlices i j avslice aslice = do
 
   -- Ord
   equal (aslice `compare` aslice)
-        (avslice `compare` avslice)
+    (avslice `compare` avslice)
   equal (A.reverse aslice `compare` aslice)
-        (AV.reverse avslice `compare` avslice)
+    (AV.reverse avslice `compare` avslice)
 
   -- fromArray <<< toArray == identity
   equal (avslice)
-          (fromArray (toArray avslice))
+    (fromArray (toArray avslice))
 
   equal (aslice) (toArray avslice)
 
@@ -60,7 +58,7 @@ checkSlices i j avslice aslice = do
   for_ (-1 A... 1) \e -> do
     equal
       (AV.insertBy (flip compare) e avslice)
-      (A.insertBy  (flip compare) e aslice)
+      (A.insertBy (flip compare) e aslice)
 
   -- head
   equal (A.head aslice) (AV.head avslice)
@@ -82,27 +80,27 @@ checkSlices i j avslice aslice = do
 
   -- modifyAtIndices
   equal (AV.modifyAtIndices avslice (_ + 1) avslice)
-        (A.modifyAtIndices  aslice  (_ + 1) aslice)
+    (A.modifyAtIndices aslice (_ + 1) aslice)
 
   -- reverse
   equal (AV.reverse avslice) (A.reverse aslice)
 
   -- concat
   equal (A.concat $ map (const aslice) aslice)
-        (AV.concat $ map (const avslice) avslice)
+    (AV.concat $ map (const avslice) avslice)
 
   -- concatMap
   equal (AV.concatMap pure avslice) (A.concatMap pure aslice)
 
   -- mapWithIndex
   equal (AV.mapWithIndex (\n el -> Tuple n el) avslice)
-        (A.mapWithIndex (\n el -> Tuple n el) aslice)
+    (A.mapWithIndex (\n el -> Tuple n el) aslice)
 
   -- sort
   equal (AV.sort avslice) (A.sort aslice)
 
   -- sortBy
-  equal (AV.sortBy (flip compare) avslice) (A.sortBy  (flip compare) aslice)
+  equal (AV.sortBy (flip compare) avslice) (A.sortBy (flip compare) aslice)
 
   -- sortWith
   equal (AV.sortWith negate avslice) (A.sortWith negate aslice)
@@ -110,12 +108,9 @@ checkSlices i j avslice aslice = do
   -- group
   equal (AV.group avslice) (A.group aslice)
 
-  -- group'
-  equal (AV.group' avslice) (A.group' aslice)
-
   -- groupBy
   equal (AV.groupBy (map not eq) avslice)
-        (A.groupBy (map not eq) aslice)
+    (A.groupBy (map not eq) aslice)
 
   -- nub
   equal (AV.nub avslice) (A.nub aslice)
@@ -127,7 +122,7 @@ checkSlices i j avslice aslice = do
   equal (AV.nubBy (flip compare) avslice) (A.nubBy (flip compare) aslice)
 
   -- nubByEq
-  equal (AV.nubByEq (\x y -> x > y) avslice) (A.nubByEq  (\x y -> x > y) aslice)
+  equal (AV.nubByEq (\x y -> x > y) avslice) (A.nubByEq (\x y -> x > y) aslice)
 
   -- union
   equal
@@ -137,7 +132,7 @@ checkSlices i j avslice aslice = do
   -- unionBy
   equal
     (AV.unionBy (\x y -> x > y) (AV.take 2 avslice) (AV.drop 4 avslice))
-    (A.unionBy  (\x y -> x > y) (A.take 2 aslice)   (A.drop 4 aslice))
+    (A.unionBy (\x y -> x > y) (A.take 2 aslice) (A.drop 4 aslice))
 
   -- delete, deleteBy
   for_ avslice \el -> do
@@ -150,19 +145,18 @@ checkSlices i j avslice aslice = do
       (A.deleteBy (\x y -> x > y) el aslice)
 
   -- foldM
-  let fold_f = (\a b -> [a + b])
+  let fold_f = (\a b -> [ a + b ])
   equal (AV.foldM fold_f 1 avslice) (A.foldM fold_f 1 aslice)
 
   let fold_f' = (\a b -> Just $ a + b)
   -- foldRecM
-  equal (AV.foldRecM fold_f' 1 avslice) (A.foldRecM  fold_f' 1 aslice)
-
+  equal (AV.foldRecM fold_f' 1 avslice) (A.foldRecM fold_f' 1 aslice)
 
 checkWithIndex :: Int -> ArrayView Int -> Array Int -> Effect Unit
 checkWithIndex ix avslice aslice = do
   for_ (-10 A... 10) \i -> do
     -- slice
-    equal (AV.slice i ix avslice) (A.slice  i ix aslice)
+    equal (AV.slice i ix avslice) (A.slice i ix aslice)
 
   -- take
   equal (AV.take ix avslice) (A.take ix aslice)
@@ -180,30 +174,29 @@ checkWithIndex ix avslice aslice = do
   equal (A.index aslice ix) (AV.index avslice ix)
 
   -- unsafeIndex
-  if ix >= 0 && ix < A.length aslice
-    then
+  if ix >= 0 && ix < A.length aslice then
     equal (unsafePartial (A.unsafeIndex aslice ix))
-          (unsafePartial (AV.unsafeIndex avslice ix))
-    else
+      (unsafePartial (AV.unsafeIndex avslice ix))
+  else
     assertThrows \_ ->
-    equal (unsafePartial (A.unsafeIndex aslice ix))
-          (unsafePartial (AV.unsafeIndex avslice ix))
+      equal (unsafePartial (A.unsafeIndex aslice ix))
+        (unsafePartial (AV.unsafeIndex avslice ix))
 
   -- elemIndex
   equal (A.elemIndex ix (aslice <> aslice))
-        (AV.elemIndex ix  (avslice <> avslice))
+    (AV.elemIndex ix (avslice <> avslice))
 
   -- elemLastIndex
   equal (A.elemLastIndex ix (aslice <> aslice))
-        (AV.elemLastIndex ix  (avslice <> avslice))
+    (AV.elemLastIndex ix (avslice <> avslice))
 
   -- findIndex
   equal (A.findIndex (_ == ix) (aslice <> aslice))
-        (AV.findIndex (_ == ix)  (avslice <> avslice))
+    (AV.findIndex (_ == ix) (avslice <> avslice))
 
   -- findLastIndex
   equal (A.findIndex (_ == ix) (aslice <> aslice))
-        (AV.findIndex (_ == ix)  (avslice <> avslice))
+    (AV.findIndex (_ == ix) (avslice <> avslice))
 
   -- insertAt
   equal (AV.insertAt ix ix avslice) (A.insertAt ix ix aslice)
@@ -215,7 +208,7 @@ checkWithIndex ix avslice aslice = do
   equal (AV.updateAt ix 0 avslice) (A.updateAt ix 0 aslice)
 
   -- updateAtIndices
-  let ixs = [Tuple ix 0, Tuple (ix+1) 1]
+  let ixs = [ Tuple ix 0, Tuple (ix + 1) 1 ]
   equal (AV.updateAtIndices ixs avslice) (A.updateAtIndices ixs aslice)
 
   -- modifyAt
@@ -224,10 +217,14 @@ checkWithIndex ix avslice aslice = do
   -- alterAt
   equal (AV.alterAt ix pure avslice) (A.alterAt ix pure aslice)
 
-
-checkWithPredicate :: forall a.
-                      Eq a => Show a =>
-                      (a -> Boolean) -> ArrayView a -> Array a -> Effect Unit
+checkWithPredicate
+  :: forall a
+   . Eq a
+  => Show a
+  => (a -> Boolean)
+  -> ArrayView a
+  -> Array a
+  -> Effect Unit
 checkWithPredicate pred avslice aslice = do
   -- span
   equal (fixInitRest (A.span pred aslice)) (AV.span pred avslice)
@@ -243,7 +240,7 @@ checkWithPredicate pred avslice aslice = do
 
   -- filterA
   equal (A.filterA (pred >>> A.singleton) aslice)
-        (AV.filterA (pred >>> A.singleton) avslice)
+    (AV.filterA (pred >>> A.singleton) avslice)
 
   -- partition
   equal (fixYesNo (A.partition pred aslice)) (AV.partition pred avslice)
@@ -255,10 +252,15 @@ checkWithPredicate pred avslice aslice = do
   -- catMaybes
   equal (AV.catMaybes (map g avslice)) (A.catMaybes (map g aslice))
 
-
-checkCombinations :: forall a. Ord a => Show a =>
-                     ArrayView a -> ArrayView a ->
-                     Array a -> Array a -> Effect Unit
+checkCombinations
+  :: forall a
+   . Ord a
+  => Show a
+  => ArrayView a
+  -> ArrayView a
+  -> Array a
+  -> Array a
+  -> Effect Unit
 checkCombinations av1 av2 a1 a2 = do
   -- difference
   equal (AV.difference av1 av2) (A.difference a1 a2)
@@ -274,12 +276,12 @@ checkCombinations av1 av2 a1 a2 = do
   equal (AV.zipWith (\x y -> x > y) av1 av2) (A.zipWith (\x y -> x > y) a1 a2)
 
   -- zipWIthA
-  equal (AV.zipWithA (\x y -> [x > y]) av1 av2)
-        (A.zipWithA  (\x y -> [x > y]) a1 a2)
+  equal (AV.zipWithA (\x y -> [ x > y ]) av1 av2)
+    (A.zipWithA (\x y -> [ x > y ]) a1 a2)
 
   -- zip
   equal (AV.zip av1 av2) (A.zip a1 a2)
 
   -- unzip
   equal (AV.unzip (AV.zip av1 av2))
-        (A.unzip (A.zip a1 a2))
+    (A.unzip (A.zip a1 a2))

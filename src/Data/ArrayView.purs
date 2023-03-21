@@ -1,13 +1,15 @@
 module Data.ArrayView
   ( fromFoldable
   , toUnfoldable
-  , (..), range
+  , (..)
+  , range
   , replicate
   , some
   , many
 
   , null
-  , (:), cons
+  , (:)
+  , cons
   , snoc
   , insert
   , insertBy
@@ -44,8 +46,6 @@ module Data.ArrayView
   , sortBy
   , sortWith
 
-
-
   , slice
   , take
   , takeEnd
@@ -55,7 +55,6 @@ module Data.ArrayView
   , dropWhile
   , span
   , group
-  , group'
   , groupBy
 
   , nub
@@ -67,7 +66,8 @@ module Data.ArrayView
   , delete
   , deleteBy
 
-  , (\\), difference
+  , (\\)
+  , difference
   , intersect
   , intersectBy
 
@@ -83,28 +83,16 @@ module Data.ArrayView
 
   , force
   , module Exports
-  )
-where
-
+  ) where
 
 import Data.ArrayView.Internal
-  ( ArrayView
-  , fromArray
-  , toArray
-  , singleton
-  , length
-  , index, (!!)
-  , concatMap
-  , class ArrayToView
-  , use
-  ) as Exports
 
 import Control.Alternative (class Alternative)
 import Control.Lazy (class Lazy)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array as A
 import Data.Array.NonEmpty (NonEmptyArray)
-import Data.ArrayView.Internal
+import Data.ArrayView.Internal (ArrayView, fromArray, toArray, singleton, length, index, (!!), concatMap, class ArrayToView, use) as Exports
 import Data.Foldable (foldl, foldr, foldMap, fold, intercalate, elem, notElem, find, findMap, any, all) as Exports
 import Data.Maybe (Maybe(..))
 import Data.Traversable (class Foldable)
@@ -113,13 +101,11 @@ import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable)
 import Prelude (class Applicative, class Eq, class Monad, class Ord, type (~>), Ordering, bind, mempty, otherwise, pure, (&&), (+), (-), (<), (<=), (>), (>=), (>>>), (||))
 
-
 fromFoldable :: forall f. Foldable f => f ~> ArrayView
 fromFoldable = A.fromFoldable >>> fromArray
 
 toUnfoldable :: forall f. Unfoldable f => ArrayView ~> f
 toUnfoldable = toArray >>> A.toUnfoldable
-
 
 range :: Int -> Int -> ArrayView Int
 range = use A.range
@@ -128,7 +114,7 @@ infix 8 range as ..
 
 null :: forall a. ArrayView a -> Boolean
 null (View { len: 0 }) = true
-null _                 = false
+null _ = false
 
 replicate :: forall a. Int -> a -> ArrayView a
 replicate = use (A.replicate :: Int -> a -> Array a)
@@ -160,7 +146,6 @@ head av = av !! 0
 
 last :: forall a. ArrayView a -> Maybe a
 last av = av !! (length av - 1)
-
 
 -- | Perform deferred `slice`. This function allows the garbage collector to
 -- | free unused parts of the array referenced by given `ArrayView`.
@@ -218,29 +203,25 @@ filter f = use (A.filter f)
 partition :: forall a. (a -> Boolean) -> ArrayView a -> { yes :: ArrayView a, no :: ArrayView a }
 partition p = use (A.partition p) >>> fix
   where
-    fix :: { no :: Array a, yes :: Array a } -> { yes :: ArrayView a, no :: ArrayView a }
-    fix { yes, no } = { yes: fromArray yes, no: fromArray no }
-
+  fix :: { no :: Array a, yes :: Array a } -> { yes :: ArrayView a, no :: ArrayView a }
+  fix { yes, no } = { yes: fromArray yes, no: fromArray no }
 
 -- | *O(1)*
 slice :: forall a. Int -> Int -> ArrayView a -> ArrayView a
-slice start' end' (View view @ { from, len, arr }) =
-  if end <= start || start >= len
-  then mempty --  forget about the original array
-             -- (allow it to be GC'ed)
+slice start' end' (View view@{ from, len }) =
+  if end <= start || start >= len then mempty --  forget about the original array
+  -- (allow it to be GC'ed)
   else View view { from = from + start, len = end - start }
   where
-    start = between 0 len (fix start')
-    end   = between 0 len (fix end')
-    between lb ub n =
-      if n < lb
-      then lb
-      else if n > ub
-           then ub
-           else n
-    fix n
-      | n < 0 = len + n
-      | otherwise = n
+  start = between 0 len (fix start')
+  end = between 0 len (fix end')
+  between lb ub n =
+    if n < lb then lb
+    else if n > ub then ub
+    else n
+  fix n
+    | n < 0 = len + n
+    | otherwise = n
 
 -- | *O(1)*
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
@@ -252,20 +233,20 @@ init = whenNonEmpty \(View view) -> View view { len = view.len - 1 }
 
 -- | *O(1)*
 uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
-uncons av @ (View { from, arr }) = do
+uncons av@(View { from, arr }) = do
   head <- arr A.!! from
   tail <- tail av
   pure { head, tail }
 
 -- | *O(1)*
 unsnoc :: forall a. ArrayView a -> Maybe { init :: ArrayView a, last :: a }
-unsnoc av @ (View { from, len, arr }) = do
+unsnoc av@(View { from, len, arr }) = do
   init <- init av
   last <- arr A.!! (from + len - 1)
   pure { init, last }
 
 unsafeIndex :: forall a. Partial => ArrayView a -> Int -> a
-unsafeIndex (View view @ { from, len, arr }) ix
+unsafeIndex (View { from, len, arr }) ix
   | ix < len && ix >= 0 = A.unsafeIndex arr (ix + from)
 
 -- | *O(1)*
@@ -287,9 +268,10 @@ drop n av = slice (toNonNegative n) (length av) av
 -- | *O(1)*
 dropEnd :: forall a. Int -> ArrayView a -> ArrayView a
 dropEnd n xs = take (length xs - n) xs -- `toNonNegative` is not needed because
-                                       -- `slice` will just return the whole
-                                       -- `ArrayView` if the second argument is
-                                       -- greater than the length.
+
+-- `slice` will just return the whole
+-- `ArrayView` if the second argument is
+-- greater than the length.
 
 -- | See also: `span`.
 dropWhile :: forall a. (a -> Boolean) -> ArrayView a -> ArrayView a
@@ -297,8 +279,11 @@ dropWhile p xs = (span p xs).rest
 
 -- | The time complexity of `span` only depends on the length of the resulting
 -- | `init` ArrayView.
-span :: forall a. (a -> Boolean) -> ArrayView a ->
-        { init :: ArrayView a, rest :: ArrayView a }
+span
+  :: forall a
+   . (a -> Boolean)
+  -> ArrayView a
+  -> { init :: ArrayView a, rest :: ArrayView a }
 span p av =
   -- `span` implementation from Data/Array.purs is copypasted here instead of
   -- reusing `Data.Array.span` because `slice` on `ArrayView` is O(1), and
@@ -311,11 +296,10 @@ span p av =
     Nothing ->
       { init: av, rest: mempty }
   where
-    go i =
-      case index av i of
-        Just x -> if p x then go (i + 1) else Just i
-        Nothing -> Nothing
-
+  go i =
+    case index av i of
+      Just x -> if p x then go (i + 1) else Just i
+      Nothing -> Nothing
 
 filterA :: forall a f. Applicative f => (a -> f Boolean) -> ArrayView a -> f (ArrayView a)
 filterA f = use (A.filterA f)
@@ -340,9 +324,6 @@ sortWith f = use (A.sortWith f)
 
 group :: forall a. Eq a => ArrayView a -> ArrayView (NonEmptyArrayView a)
 group = use (A.group :: Array a -> Array (NonEmptyArray a))
-
-group' :: forall a. Ord a => ArrayView a -> ArrayView (NonEmptyArrayView a)
-group' = use (A.group' :: Array a -> Array (NonEmptyArray a))
 
 groupBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView (NonEmptyArrayView a)
 groupBy f = use (A.groupBy f)
@@ -404,7 +385,7 @@ foldRecM f = use (A.foldRecM f)
 
 whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
 whenNonEmpty _ (View { len: 0 }) = Nothing
-whenNonEmpty f av           = Just (f av)
+whenNonEmpty f av = Just (f av)
 
 toNonNegative :: Int -> Int
 toNonNegative n = if n > 0 then n else 0

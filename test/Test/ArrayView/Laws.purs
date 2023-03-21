@@ -2,11 +2,10 @@ module Test.ArrayView.Laws (checkLaws) where
 
 import Data.ArrayView.Internal
 
-import Control.Extend (class Extend)
-import Control.MonadPlus (class MonadPlus)
-import Control.MonadZero (class Alternative, class MonadZero)
-import Control.Plus (class Alt, class Plus)
 import Control.Apply (lift2)
+import Control.Extend (class Extend)
+import Control.MonadPlus (class Alternative, class MonadPlus)
+import Control.Plus (class Alt, class Plus)
 import Data.ArrayView.NonEmpty as NEAV
 import Data.Newtype (class Newtype)
 import Data.Traversable (class Foldable, class Traversable)
@@ -14,17 +13,16 @@ import Effect (Effect)
 import Effect.Console (log)
 import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, Unit, discard, (<$>))
 import Test.QuickCheck.Arbitrary (class Arbitrary, class Coarbitrary, arbitrary, coarbitrary)
-import Test.QuickCheck.Laws.Control (checkAlt, checkAlternative, checkApplicative, checkApply, checkBind, checkMonad, checkMonadPlus, checkMonadZero, checkPlus, checkExtend)
+import Test.QuickCheck.Laws.Control (checkAlt, checkAlternative, checkApplicative, checkApply, checkBind, checkMonad, checkMonadPlus, checkPlus, checkExtend)
 import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
-import Type.Proxy (Proxy(..), Proxy2(..))
-
+import Type.Proxy (Proxy(..))
 
 -- * some boilerplate required to bypass OrphanInstances.
 
 newtype ArbitraryAV a = ArbitraryAV (ArrayView a)
 
 instance arbitraryArbitraryAV :: Arbitrary a => Arbitrary (ArbitraryAV a) where
-   arbitrary = ArbitraryAV <$> (fromArray <$> arbitrary)
+  arbitrary = ArbitraryAV <$> (fromArray <$> arbitrary)
 
 instance coarbitraryArbitraryAV :: Coarbitrary a => Coarbitrary (ArbitraryAV a) where
   coarbitrary (ArbitraryAV t) gr = coarbitrary (toArray t) gr
@@ -44,13 +42,12 @@ derive newtype instance altArbitraryAV :: Alt ArbitraryAV
 derive newtype instance plusArbitraryAV :: Plus ArbitraryAV
 derive newtype instance alternativeArbitraryAV :: Alternative ArbitraryAV
 derive newtype instance extendArbitraryAV :: Extend ArbitraryAV
-derive newtype instance monadZeroArbitraryAV :: MonadZero ArbitraryAV
 derive newtype instance monadPlusArbitraryAV :: MonadPlus ArbitraryAV
 
 newtype ArbitraryNEAV a = ArbitraryNEAV (NonEmptyArrayView a)
 
 instance arbitraryArbitraryNEAV :: Arbitrary a => Arbitrary (ArbitraryNEAV a) where
-   arbitrary = ArbitraryNEAV <$> (lift2 NEAV.cons' arbitrary (fromArray <$> arbitrary))
+  arbitrary = ArbitraryNEAV <$> (lift2 NEAV.cons' arbitrary (fromArray <$> arbitrary))
 
 derive instance newtypeArbitraryNEAV :: Newtype (ArbitraryNEAV a) _
 derive newtype instance semigroupArbitraryNEAV :: Semigroup (ArbitraryNEAV a)
@@ -64,7 +61,6 @@ derive newtype instance monadArbitraryNEAV :: Monad ArbitraryNEAV
 derive newtype instance traversableArbitraryNEAV :: Traversable ArbitraryNEAV
 derive newtype instance altArbitraryNEAV :: Alt ArbitraryNEAV
 
-
 checkLaws :: Effect Unit
 checkLaws = do
   log "checking ArrayView instances"
@@ -74,8 +70,9 @@ checkLaws = do
 
 checkLawsArrayView :: Effect Unit
 checkLawsArrayView = do
-  let prx1 = Proxy :: Proxy (ArbitraryAV Int)
-      prx2 = Proxy2 :: Proxy2 ArbitraryAV
+  let
+    prx1 = Proxy :: Proxy (ArbitraryAV Int)
+    prx2 = Proxy :: Proxy ArbitraryAV
   checkSemigroup prx1
   checkMonoid prx1
   checkEq prx1
@@ -91,13 +88,13 @@ checkLawsArrayView = do
   checkPlus prx2
   checkAlternative prx2
   checkExtend prx2
-  checkMonadZero prx2
   checkMonadPlus prx2
 
 checkLawsNonEmptyArrayView :: Effect Unit
 checkLawsNonEmptyArrayView = do
-  let prx1 = Proxy :: Proxy (ArbitraryNEAV Int)
-      prx2 = Proxy2 :: Proxy2 ArbitraryNEAV
+  let
+    prx1 = Proxy :: Proxy (ArbitraryNEAV Int)
+    prx2 = Proxy :: Proxy ArbitraryNEAV
   checkSemigroup prx1
   checkEq prx1
   checkFoldable prx2

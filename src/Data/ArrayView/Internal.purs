@@ -1,25 +1,25 @@
 module Data.ArrayView.Internal
-  ( ArrayView (..)
-  , fromArray
-  , toArray
-
-  , singleton
-  , length
-  , index, (!!)
-  , concatMap
-
-  , NonEmptyArrayView (..)
+  ( (!!)
+  , ArrayView(..)
+  , NonEmptyArrayView(..)
   , class ArrayToView
-  , use
-
+  , concatMap
+  , fromArray
+  , fromNonEmpty
   , fromNonEmptyArray
+  , index
+  , length
+  , singleton
+  , toArray
   , toArrayView
-  )
-where
+  , toNonEmpty
+  , use
+  ) where
+
+import Data.Tuple
 
 import Control.Extend (class Extend, extend)
-import Control.MonadPlus (class MonadPlus)
-import Control.MonadZero (class Alternative, class MonadZero)
+import Control.MonadPlus (class Alternative, class MonadPlus)
 import Control.Plus (class Alt, class Plus, alt)
 import Data.Array as A
 import Data.Array.NonEmpty as NEA
@@ -34,15 +34,13 @@ import Data.NonEmpty (NonEmpty, (:|))
 import Data.NonEmpty as NE
 import Data.Ord (class Ord1)
 import Data.Ordering (Ordering(..))
-import Data.Semigroup.Foldable (class Foldable1, fold1Default, foldMap1)
+import Data.Semigroup.Foldable (class Foldable1, foldMap1, foldl1Default, foldr1Default)
 import Data.Semigroup.Traversable (class Traversable1, sequence1, traverse1Default)
 import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
 import Data.TraversableWithIndex (class TraversableWithIndex, traverseWithIndexDefault)
-import Data.Tuple
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
 import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), ap, append, apply, compare, eq, map, mempty, otherwise, show, (&&), (+), (-), (<), (<<<), (<>), (==), (>=), (>>>))
-
 
 -- * ArrayView
 
@@ -53,17 +51,18 @@ derive instance newtypeArrayView :: Newtype (ArrayView a) _
 derive instance genericArrayView :: Generic (ArrayView a) _
 
 instance showArrayView :: Show a => Show (ArrayView a) where
-  show av  = "fromArray " <> show (toArray av)
+  show av = "fromArray " <> show (toArray av)
 
 instance eqArrayView :: Eq a => Eq (ArrayView a) where
   eq xs ys = lenXs == length ys && go lenXs
     where
-      lenXs = length xs
-      go (-1) = true
-      go i    = if xs !! i == ys !! i then
-                  go (i - 1)
-                else
-                  false
+    lenXs = length xs
+    go (-1) = true
+    go i =
+      if xs !! i == ys !! i then
+        go (i - 1)
+      else
+        false
 
 instance eq1ArrayView :: Eq1 ArrayView where
   eq1 xs ys = xs `eq` ys
@@ -71,14 +70,17 @@ instance eq1ArrayView :: Eq1 ArrayView where
 instance ordArrayView :: Ord a => Ord (ArrayView a) where
   compare xs ys = go 0
     where
-      compareLengths = compare (length xs) (length ys)
-      go i =
-        case xs !! i, ys !! i of
-          Just x, Just y -> let cmprsn = compare x y in
+    compareLengths = compare (length xs) (length ys)
+    go i =
+      case xs !! i, ys !! i of
+        Just x, Just y ->
+          let
+            cmprsn = compare x y
+          in
             if cmprsn == EQ then
               go (i + 1)
             else cmprsn
-          _, _ -> compareLengths
+        _, _ -> compareLengths
 
 instance ord1ArrayView :: Ord1 ArrayView where
   compare1 xs ys = xs `compare` ys
@@ -142,34 +144,34 @@ instance alternativeArrayView :: Alternative ArrayView
 instance extendArrayView :: Extend ArrayView where
   extend f wa = fromArray (extend (use f) (toArray wa))
 
-instance monadZeroArrayView :: MonadZero ArrayView
 instance monadPlusArrayView :: MonadPlus ArrayView
 
-
 index :: forall a. ArrayView a -> Int -> Maybe a
-index av @ (View { from, len, arr }) ix
+index (View { from, len, arr }) ix
   | ix >= 0 && ix < len = arr A.!! (from + ix)
   | otherwise = Nothing
 
 infixl 8 index as !!
 
 singleton :: forall a. a -> ArrayView a
-singleton a = View { from: 0, len: 1, arr: [a] }
+singleton a = View { from: 0, len: 1, arr: [ a ] }
 
 length :: forall a. ArrayView a -> Int
 length (View { len }) = len
 
-
 fromArray :: Array ~> ArrayView
-fromArray arr = let len = A.length arr in
-  View { from: 0, len, arr }
+fromArray arr =
+  let
+    len = A.length arr
+  in
+    View { from: 0, len, arr }
 
 toArray :: ArrayView ~> Array
 toArray (View { from, len, arr })
   | from == 0 && A.length arr == len =
-    arr
+      arr
   | otherwise =
-    A.slice from (from + len) arr
+      A.slice from (from + len) arr
 
 concatMap :: forall a b. (a -> ArrayView b) -> ArrayView a -> ArrayView b
 concatMap = use (A.concatMap :: (a -> Array b) -> Array a -> Array b)
@@ -182,9 +184,10 @@ derive instance newtypeNonEmptyArrayView :: Newtype (NonEmptyArrayView a) _
 
 instance showNonEmptyArrayView :: Show a => Show (NonEmptyArrayView a) where
   show (NonEmptyArrayView neav) =
-    "NonEmptyArrayView (" <>
-    NE.fromNonEmpty (\x xs -> show x <> ":|" <> show xs) neav <>
-    ")"
+    "NonEmptyArrayView ("
+      <> NE.fromNonEmpty (\x xs -> show x <> ":|" <> show xs) neav
+      <>
+        ")"
 
 derive newtype instance eqNEArrayView :: Eq a => Eq (NonEmptyArrayView a)
 derive newtype instance eq1NEArrayView :: Eq1 NonEmptyArrayView
@@ -226,7 +229,8 @@ instance foldableWithIndexNonEmptyArrayView :: FoldableWithIndex Int NonEmptyArr
 
 instance foldable1NonEmptyArrayView :: Foldable1 NonEmptyArrayView where
   foldMap1 f m = foldMap1 f (unwrap m)
-  fold1 = fold1Default
+  foldl1 f = foldl1Default f
+  foldr1 f = foldr1Default f
 
 derive newtype instance unfoldable1NonEmptyArrayView :: Unfoldable1 NonEmptyArrayView
 derive newtype instance traversableNonEmptyArrayView :: Traversable NonEmptyArrayView
@@ -244,15 +248,17 @@ instance altNonEmptyArrayView :: Alt NonEmptyArrayView where
 -- internal
 
 fromNonEmpty :: NEA.NonEmptyArray ~> NonEmpty ArrayView
-fromNonEmpty nav = let t = NEA.uncons nav in
-  t.head :| fromArray (t.tail)
+fromNonEmpty nav =
+  let
+    t = NEA.uncons nav
+  in
+    t.head :| fromArray (t.tail)
 
 toNonEmpty :: NonEmpty ArrayView ~> NEA.NonEmptyArray
 toNonEmpty narr = NEA.cons' (NE.head narr) (toArray (NE.tail narr))
 
 empty :: forall a. ArrayView a
 empty = View { from: 0, len: 0, arr: [] }
-
 
 -- | This typeclass allows to convert any function that operates on `Array` to a
 -- | function that operates on `ArrayView` and vice versa. `use` only inserts
@@ -284,37 +290,49 @@ class ArrayToView a b where
 instance arrayToViewId :: ArrayToView a a where
   use x = x
 
-else instance arrayToViewBi :: (ArrayToView b a, ArrayToView c d)
-                            => ArrayToView (a -> c) (b -> d) where
-  use f x = use (f (use x))
-
-else instance arrayToViewFrom :: ArrayToView a b
-                              => ArrayToView (Array a) (ArrayView b) where
-  use = fromArray <<< map use
-
-else instance arrayToViewTo :: ArrayToView a b
-                            => ArrayToView (ArrayView a) (Array b) where
-  use = toArray <<< map use
-
-else instance arrayToViewFromNEA :: ArrayToView a b
-                                 => ArrayToView (NEA.NonEmptyArray a)
-                                                (NonEmptyArrayView b) where
-  use = map use <<< fromNonEmptyArray
-
-else instance arrayToViewToNEA :: ArrayToView a b
-                               => ArrayToView (NonEmptyArrayView a)
-                                              (NEA.NonEmptyArray b) where
-  use = map use <<< toNonEmptyArray
-
-else instance arrayToViewTuple :: (ArrayToView a b, ArrayToView c d)
-                               => ArrayToView (Tuple a c)
-                                              (Tuple b d) where
-  use = bimap use use
-
-else instance arrayToViewFunctor :: (Functor f, ArrayToView a b)
-                                 => ArrayToView (f a) (f b) where
+else instance arrayToViewFunctor ::
+  ( Functor f
+  , ArrayToView a b
+  ) =>
+  ArrayToView (f a) (f b) where
   use = map use
 
+else instance arrayToViewBi ::
+  ( ArrayToView b a
+  , ArrayToView c d
+  ) =>
+  ArrayToView (a -> c) (b -> d) where
+  use f x = use (f (use x))
+
+else instance arrayToViewFrom ::
+  ArrayToView a b =>
+  ArrayToView (Array a) (ArrayView b) where
+  use = fromArray <<< map use
+
+else instance arrayToViewTo ::
+  ArrayToView a b =>
+  ArrayToView (ArrayView a) (Array b) where
+  use = toArray <<< map use
+
+else instance arrayToViewFromNEA ::
+  ArrayToView a b =>
+  ArrayToView (NEA.NonEmptyArray a)
+    (NonEmptyArrayView b) where
+  use = map use <<< fromNonEmptyArray
+
+else instance arrayToViewToNEA ::
+  ArrayToView a b =>
+  ArrayToView (NonEmptyArrayView a)
+    (NEA.NonEmptyArray b) where
+  use = map use <<< toNonEmptyArray
+
+else instance arrayToViewTuple ::
+  ( ArrayToView a b
+  , ArrayToView c d
+  ) =>
+  ArrayToView (Tuple a c)
+    (Tuple b d) where
+  use = bimap use use
 
 toArrayView :: forall a. NonEmptyArrayView a -> ArrayView a
 toArrayView (NonEmptyArrayView m) =
@@ -322,8 +340,10 @@ toArrayView (NonEmptyArrayView m) =
 
 fromNonEmptyArray :: NEA.NonEmptyArray ~> NonEmptyArrayView
 fromNonEmptyArray m =
-  wrap (case NEA.toNonEmpty m of
-           a :| as -> a :| fromArray as)
+  wrap
+    ( case NEA.toNonEmpty m of
+        a :| as -> a :| fromArray as
+    )
 
 toNonEmptyArray :: NonEmptyArrayView ~> NEA.NonEmptyArray
 toNonEmptyArray (NonEmptyArrayView (x :| xs)) =
